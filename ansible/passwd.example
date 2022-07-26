@@ -1,0 +1,10 @@
+---
+ansible_sudo_pass: 'xxx'
+ansible_become_pass: 'xxx'
+docker_login_user: 'xxx'
+docker_login_password: 'xxx'
+user_fleetdev_password: 'xxx'
+influx_server: 'http://influxdb:8086'
+influx_db: 'xxx'
+influx_user: 'xxx'
+influx_password: 'xxx'

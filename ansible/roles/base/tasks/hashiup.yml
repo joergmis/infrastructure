@@ -1,0 +1,58 @@
+---
+- name: Install consul server
+  shell: |
+    /usr/local/bin/hashi-up consul install \
+    --local \
+    --server \
+    --client-addr 0.0.0.0 \
+    --bootstrap-expect 3 \
+    --bind-addr {{ ansible_default_ipv4.address }} \
+    --retry-join {{ hostvars[groups['server'][0]].ansible_default_ipv4.address }}
+  when: "'server' in group_names"
+
+- name: Install consul client
+  shell: |
+    /usr/local/bin/hashi-up consul install \
+    --local \
+    --client-addr 0.0.0.0 \
+    --bind-addr {{ ansible_default_ipv4.address }} \
+    --retry-join {{ hostvars[groups['server'][0]].ansible_default_ipv4.address }} \
+    --retry-join {{ hostvars[groups['server'][1]].ansible_default_ipv4.address }} \
+    --retry-join {{ hostvars[groups['server'][2]].ansible_default_ipv4.address }}
+  when: "'client' in group_names"
+
+- name: Copy the nomad server configuration
+  ansible.builtin.template:
+    src: server.hcl
+    dest: server.hcl
+  when: "'server' in group_names"
+
+- name: Install nomad server
+  shell: |
+    /usr/local/bin/hashi-up nomad install \
+    --local \
+    -c server.hcl
+  when: "'server' in group_names"
+
+- name: Copy the nomad client configuration
+  ansible.builtin.template:
+    src: client.hcl
+    dest: client.hcl
+  when: "'client' in group_names"
+
+- name: Install nomad client
+  shell: |
+    /usr/local/bin/hashi-up nomad install \
+    --local \
+    --client \
+    -c client.hcl
+  when: "'client' in group_names"
+
+- name: Install vault server
+  shell: |
+    /usr/local/bin/hashi-up vault install \
+    --local \
+    --storage consul \
+    --api-addr http://{{ ansible_default_ipv4.address }}:8200
+  when: "'server' in group_names"
+

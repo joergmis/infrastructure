@@ -1,0 +1,8 @@
+site_name: Tiny Rocket - Infrastructure
+site_url: https://infra.tiny-rocket.ch
+site_dir: public
+
+nav:
+  - Home: index.md
+
+theme: readthedocs

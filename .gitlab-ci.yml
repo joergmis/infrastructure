@@ -1,0 +1,176 @@
+variables:
+  PLAN: plan.cache
+  PLAN_JSON: plan.json
+  TF_STATE_NAME: default
+  TF_CACHE_KEY: default
+  ENV: prod    
+
+.variables-base:
+  variables:
+    TF_ROOT: terraform/${PROVIDER}
+    TF_ADDRESS: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${PROVIDER}
+
+.variables-digitalocean:
+  variables:
+    PROVIDER: digitalocean
+
+.variables-nomad:
+  variables:
+    PROVIDER: nomad
+
+cache:
+  paths:
+    - ./ansible/${ENV}/hosts
+    - ./ansible/ansible.cfg
+    - ./terraform/nomad/provider.tf
+    - ${TF_ROOT}/.terraform
+  policy: pull-push
+
+stages:
+  - docker
+  - digitalocean
+  - ansible
+  - nomad
+  - cleanup
+  - documentation
+
+digitalocean:setup:
+  stage: digitalocean
+  when: manual
+  needs: []
+  extends:
+    - .variables-base
+    - .variables-digitalocean
+  image: registry.gitlab.com/gitlab-org/terraform-images/stable:latest
+  before_script:
+    - cd ${TF_ROOT}
+  script:
+    - gitlab-terraform init
+    - gitlab-terraform validate
+    - gitlab-terraform plan
+    - gitlab-terraform plan-json
+    - gitlab-terraform apply
+  only:
+    refs:
+      - main
+    changes:
+      - terraform/digitalocean/**/*
+      - ansible/**/*
+  except:
+    refs:
+      - triggers
+  artifacts:
+    expire_in: 1 days
+    paths:
+      - ./ansible/${ENV}/hosts
+      - ./ansible/ansible.cfg
+      - ./terraform/nomad/provider.tf
+    reports:
+      terraform: $PLAN_JSON
+
+ansible:setup:
+  image: ubuntu:latest
+  when: manual
+  needs: ["digitalocean:setup"]
+  stage: ansible
+  before_script:
+    - chmod -R 0644 ./ansible
+    - cd ansible
+    - apt update -y && apt install -y ansible openssh-server
+    - eval `ssh-agent -s`
+    - echo ${ANSIBLE_VAULT_PASSWORD} > vault.txt
+    - ansible-vault decrypt ssh_private_key
+    - ssh-add ssh_private_key
+  script:
+    - ansible-galaxy collection install community.general
+    - ansible-playbook setup.yml
+  only:
+    refs:
+      - main
+    changes:
+      - ansible/**/*
+  except:
+    refs:
+      - triggers
+
+ansible:allow:
+  image: ubuntu:latest
+  stage: nomad
+  before_script:
+    - chmod -R 0644 ./ansible
+    - cd ansible
+    - apt update -y && apt install -y ansible openssh-server
+    - eval `ssh-agent -s`
+    - echo ${ANSIBLE_VAULT_PASSWORD} > vault.txt
+    - ansible-vault decrypt ssh_private_key
+    - ssh-add ssh_private_key
+  script:
+    - ansible-galaxy collection install community.general
+    - ansible-playbook ufw_allow.yml
+  only:
+    refs:
+      - main
+      - triggers
+
+nomad:setup:
+  stage: nomad
+  needs: ["ansible:allow"]
+  extends:
+    - .variables-base
+    - .variables-nomad
+  image: registry.gitlab.com/gitlab-org/terraform-images/stable:latest
+  before_script:
+    - cd ${TF_ROOT}
+  script:
+    - gitlab-terraform init
+    - gitlab-terraform validate
+    - gitlab-terraform plan
+    - gitlab-terraform plan-json
+    - gitlab-terraform apply 
+  artifacts:
+    expire_in: 7 days
+    reports:
+      terraform: $PLAN_JSON
+  only:
+    refs:
+      - main
+      - triggers
+
+ansible:block:
+  image: ubuntu:latest
+  stage: cleanup
+  before_script:
+    - chmod -R 0644 ./ansible
+    - cd ansible
+    - apt update -y && apt install -y ansible openssh-server
+    - eval `ssh-agent -s`
+    - echo ${ANSIBLE_VAULT_PASSWORD} > vault.txt
+    - ansible-vault decrypt ssh_private_key
+    - ssh-add ssh_private_key
+  script:
+    - ansible-galaxy collection install community.general
+    - ansible-playbook ufw_block.yml
+  only:
+    refs:
+      - main
+      - triggers
+
+pages:
+  needs: []
+  image: python:3.8-buster
+  stage: documentation
+  before_script:
+    - pip install -r requirements.txt
+  script:
+  - mkdocs build --strict --verbose
+  only:
+    refs:
+      - main
+    changes:
+      - docs/**/*
+  except:
+    refs:
+      - triggers
+  artifacts:
+    paths:
+    - public

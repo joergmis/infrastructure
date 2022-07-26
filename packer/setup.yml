@@ -1,0 +1,194 @@
+---
+- name: Install packages and start services
+  hosts: default
+  become: true
+
+  tasks:
+    - name: Disable timers for unattended upgrade, so that none will be triggered by the `date -s` call.
+      raw: systemctl disable --now {{item}}
+      with_items:
+        - "apt-daily.timer"
+        - "apt-daily-upgrade.timer"
+
+    - name: Wait for any possibly running unattended upgrade to finish
+      raw: systemd-run --property="After=apt-daily.service apt-daily-upgrade.service" --wait /bin/true
+
+    - name: Reboot the system
+      # necessary to make sure apt works for updates / installations
+      reboot:
+
+    - name: Update and upgrade packages
+      apt:
+        update_cache: true
+        upgrade: true
+
+    - name: Install packages
+      apt:
+        name: "{{ item }}"
+      loop:
+        - ufw
+        - docker
+        - docker-compose
+        - git
+        - tshark
+        - tree
+        - vim
+        - nano
+        - chrony
+        - certbot
+        - python3-pip
+      register: apt_action
+      retries: 100
+      until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+
+    - name: Install hashi-up
+      shell: curl -sLS https://get.hashi-up.dev | sh
+
+    - name: Install dnspython
+      shell: pip3 install dnspython
+
+    - name: Setup chrony configuration
+      copy:
+        src: chrony.conf
+        dest: /etc/chrony/chrony.conf
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Enable services
+      service:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - docker
+        - chrony
+        - ufw
+
+- name: Setup the user account
+  hosts: default
+  become: true
+
+  tasks:
+    - name: Create docker group
+      group:
+        name: docker
+        state: present
+
+    - name: Create fleetdev group
+      group:
+        name: fleetdev
+        state: present
+
+    - name: Create fleetdev account
+      user:
+        name: fleetdev
+        # TODO: new password
+        password: xxx
+        group: fleetdev
+        groups: "docker, sudo"
+        shell: /bin/bash
+
+    - name: Set root password
+      user:
+        name: root
+        # TODO: new password
+        password: xxx
+
+    - name: Setup ssh keys
+      authorized_key:
+        user: fleetdev
+        state: present
+        key: "{{ item }}"
+      loop:
+        - "{{ lookup('file', 'default.pub') }}"
+
+- name: Install DO metrics agent
+  hosts: default
+  become: true
+
+  tasks:
+    - name: Install the new agent
+      shell: curl -sSL https://repos.insights.digitalocean.com/install.sh | sudo bash
+
+- name: Harden SSH server
+  hosts: default
+  become: true
+
+  vars:
+    sshd_config_lines:
+      - regexp: ^#?PermitEmptyPasswords
+        line: PermitEmptyPasswords no
+
+      - regexp: (?i)^#?protocol
+        line: Protocol 2
+
+      - regexp: ^#?permituserenvironment
+        line: permituserenvironment no
+
+      - regexp: (?i)^#?Ciphers
+        line: Ciphers aes128-ctr,aes192-ctr,aes256-ctr
+
+      - regexp: ^#?ClientAliveInterval
+        line: ClientAliveInterval 600
+
+      - regexp: ^#?IgnoreRhosts
+        line: IgnoreRhosts yes
+
+      - regexp: ^#?PermitRootLogin
+        line: PermitRootLogin no
+
+  tasks:
+    - name: Harden ssh settings
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config
+        line: "{{ item.line }}"
+        regexp: "{{ item.regexp }}"
+        validate: /usr/sbin/sshd -tf %s
+      with_items: "{{ sshd_config_lines }}"
+
+- name: Harden Linux kernel
+  hosts: default
+  become: true
+
+  vars:
+    kernel_parameters:
+      - name: kernel.randomize_va_space
+        value: 2
+        reload: true
+
+      - name: net.ipv4.conf.all.accept_source_route
+        value: 0
+        reload: true
+
+      - name: net.ipv4.conf.default.accept_redirects
+        value: 0
+        reload: true
+
+      - name: net.ipv4.conf.all.send_redirects
+        value: 0
+        reload: true
+
+      - name: net.ipv4.ip_forward
+        value: 0
+        reload: true
+
+      - name: net.ipv6.conf.all.accept_source_route
+        value: 0
+        reload: true
+
+      - name: kernel.panic
+        value: 2
+        reload: false
+
+  tasks:
+    - name: Set kernel parameters
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value | default(omit) }}"
+        state: "{{ item.state | default(omit) }}"
+        reload: "{{ item.reload | default(omit) }}"
+        ignoreerrors: "{{ item.ignorereerrors | default(omit) }}"
+        sysctl_file: "{{ sysctl_file | default(omit) }}"
+      with_items: "{{ kernel_parameters }}"

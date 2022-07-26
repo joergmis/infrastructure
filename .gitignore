@@ -1,0 +1,8 @@
+vars.sh
+.terraform/
+*.lock.hcl
+*.tfvars
+vault.txt
+.DS_Store
+site
+passwd

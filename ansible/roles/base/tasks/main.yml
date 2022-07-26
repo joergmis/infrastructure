@@ -1,0 +1,5 @@
+---
+- import_tasks: hashiup.yml
+  # https://github.com/jsiebens/hashi-up
+
+- import_tasks: ufw.yml

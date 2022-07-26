@@ -1,0 +1,11 @@
+---
+- name: Setup the different services
+  hosts: all
+  become: true
+
+  vars_files:
+    - passwd
+
+  roles:
+    - base
+

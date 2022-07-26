@@ -1,0 +1,26 @@
+---
+- name: Enable ufw
+  service:
+    name: ufw
+    state: started
+    enabled: yes
+
+- name: Set ufw enabled
+  ufw:
+    state: enabled
+    policy: allow 
+
+- name: Block all traffic to tcp port 4646
+  # UFW handles only port 80 - the other ports are handled by DO.
+  ufw:
+    rule: deny
+    port: '4646'
+    proto: tcp
+
+- name: Block all traffic to tcp port 8500
+  # UFW handles only port 80 - the other ports are handled by DO.
+  ufw:
+    rule: deny
+    port: '8500'
+    proto: tcp
+

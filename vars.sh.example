@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# for terraform
+export TF_VAR_do_token=xxx
+export TV_VAR_environment=prod
+
+# for packer
+export DIGITALOCEAN_API_TOKEN=${TF_VAR_do_token}

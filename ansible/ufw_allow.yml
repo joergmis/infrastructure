@@ -1,0 +1,39 @@
+---
+- name: Setup UFW rule to allow 4646 and 8500
+  hosts: all
+  become: true
+
+  vars_files:
+    - passwd
+
+  tasks:
+    - name: Enable ufw
+      service:
+        name: ufw
+        state: started
+        enabled: yes
+
+    - name: Set ufw enabled
+      ufw:
+        state: enabled
+        policy: allow
+        direction: incoming
+
+    - name: Set ufw enabled
+      ufw:
+        state: enabled
+        policy: allow
+        direction: outgoing
+
+    - name: Allow 4646 for nomad
+      ufw:
+        rule: allow
+        port: '4646'
+        proto: 'tcp'
+
+    - name: Allow 8500 for consul
+      ufw:
+        rule: allow
+        port: '8500'
+        proto: 'tcp'
+

@@ -1,0 +1,25 @@
+---
+- name: Copy the nomad server configuration
+  template:
+    src: nomad-server.tpl
+    dest: /etc/nomad.d/nomad.hcl
+    owner: root
+    group: root
+    mode: '0644'
+  when: "'servers' in group_names"
+
+- name: Copy the nomad client configuration
+  template:
+    src: nomad-client.tpl
+    dest: /etc/nomad.d/nomad.hcl
+    owner: root
+    group: root
+    mode: '0644'
+  when: "'clients' in group_names"
+
+- name: Reboot the machines
+  reboot:
+
+- name: Unseal vault
+  shell: "VAULT_ADDR=http://127.0.0.1:8200 vault operator unseal {{ vault_key }}"
+  when: "'servers' in group_names"
