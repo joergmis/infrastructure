@@ -83,8 +83,8 @@
     - name: Create fleetdev account
       user:
         name: fleetdev
-        # TODO: new password
-        password: xxx
+        # ansible all -i localhost, -m debug -a "msg={{ 'mypassword' | password_hash('sha512', 'mysecretsalt') }}"
+        password: $6$rounds=656000$abrakadabra$sKWvg.8qSqnCVnrWKdAXxrUKH3fijMq58TuNthQ5zXqZZBpl8.ezK5I/mYOyNnS2c6xi70E3hia0Y52rHyCG5/
         group: fleetdev
         groups: "docker, sudo"
         shell: /bin/bash
@@ -92,8 +92,8 @@
     - name: Set root password
       user:
         name: root
-        # TODO: new password
-        password: xxx
+        # TODO: same password for demo purposes
+        password: $6$rounds=656000$abrakadabra$sKWvg.8qSqnCVnrWKdAXxrUKH3fijMq58TuNthQ5zXqZZBpl8.ezK5I/mYOyNnS2c6xi70E3hia0Y52rHyCG5/
 
     - name: Setup ssh keys
       authorized_key:

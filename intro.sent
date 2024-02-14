@@ -1,0 +1,67 @@
+infrastructure as code (iac)
+with terraform
+
+what is iac?
+the basic idea behind the concept is to handle
+the state of the infrastructure in form of code
+
+iac benefits
+- enables an iterative approach
+- allows to easily duplicate/rebuild environments
+- removes error sources like configuration drift
+
+approaches
+- declarative: describe how the result should
+  look like (e.g. terraform)
+- imperative: describe which steps have to be
+  executed (e.g. ansible)
+
+terraform components
+- hcl: hashicorp configuration language
+- plugin system: the providers act as adapters
+  for various APIs
+
+@docs/images/terraform-provider.avif
+
+@docs/images/terraform-workflow.avif
+
+resource "digitalocean_droplet" "client" {
+  image  = data.digitalocean_droplet_snapshot.packer.id
+  count  = var.number
+  name   = "${var.name}-${var.environment}-${count.index + 1}"
+  region = var.region
+  size   = "s-2vcpu-4gb"
+  tags   = ["consul-client"]
+}
+
+terraform creates a dependency graph
+terraform graph | dot -Tpng > graph.png
+
+@docs/images/graph.png
+
+other features
+- templates
+- output/inputs/data sources
+- remote state + state lock
+
+what can you use it for?
+- setup of cloud infra; servers, load balancers, ...
+- grafana dashboards (json specification)
+- docker container
+- minecraft
+
+related tools
+- ansible / puppet
+- hashicorp packer
+
+hashicorp ecosystem
+- packer + terraform
+- nomad + consul + vault
+
+notes
+after a licencse change OpenTofu was created and
+is now managed by the linux foundation
+
+what's next after iac?
+
+immutable infrastructure!

@@ -3,6 +3,6 @@ resource "digitalocean_droplet" "client" {
   count  = var.number
   name   = "${var.name}-${var.environment}-${count.index + 1}"
   region = var.region
-  size   = "s-1vcpu-2gb"
+  size   = "s-2vcpu-4gb"
   tags   = ["consul-client"]
 }

@@ -7,9 +7,6 @@ terraform {
       version = ">= 2.6.0"
     }
   }
-
-  # use the gitlab http backend
-  backend "http" {}
 }
 
 provider "digitalocean" {
